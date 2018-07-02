@@ -76,7 +76,7 @@ you can Create any topology with this agent without using Xenium-NFV testbed. Th
 
     {
         "name": "u1",
-        "img": "bvnf4"
+        "img": "ubuntu:16.04"
     }
     ```
 
