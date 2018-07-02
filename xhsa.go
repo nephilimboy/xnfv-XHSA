@@ -210,7 +210,7 @@ func deleteAllOVSDockerPort(vnfName string, switchName string, wg *sync.WaitGrou
 
 func deleteOVSDockerPort(vnfName string, inaterfaceName string, switchName string, wg *sync.WaitGroup) string {
 
-	deleteOVSDockerPort := "ovs-docker del-ports " + switchName + " " + inaterfaceName + " " + vnfName
+	deleteOVSDockerPort := "ovs-docker del-port " + switchName + " " + inaterfaceName + " " + vnfName
 	_, errDeleteOVSDockerPort := exec.Command("bash", "-c", deleteOVSDockerPort).Output()
 	if errDeleteOVSDockerPort != nil {
 		fmt.Printf("%s", errDeleteOVSDockerPort)
@@ -459,6 +459,7 @@ func main() {
 	fmt.Println(" ")
 	fmt.Println("****  XNFV Http Server Agent  ****")
 	fmt.Println("****  By AH.GHORAB            ****")
+	fmt.Println("****  Version 0.53            ****")
 	fmt.Println("****  Summer 2018             ****")
 	fmt.Println("------------------------------------")
 	fmt.Println("[*] Agent Running at localhost:8000")
