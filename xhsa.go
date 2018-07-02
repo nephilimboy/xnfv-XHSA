@@ -35,6 +35,16 @@ type OVSDockerPort struct {
 	SwitchName       string `json:"switchName"`
 }
 
+type SflowAgent struct {
+	SwitchName      string `json:"switchName"`
+	AgentId         string `json:"agentId"`
+	SenderInterface string `json:"senderInterface"`
+	CollectorIp     string `json:"collectorIp"`
+	CollectorPort   string `json:"collectorPort"`
+	SamplingRate    string `json:"samplingRate"`
+	PollingRate     string `json:"pollingRate"`
+}
+
 func createSwitch(switchName string, switchControllerIp string, switchControllerPort string, wg *sync.WaitGroup) string {
 	// Create Switch
 	createSwitch := "ovs-vsctl add-br " + switchName
@@ -198,6 +208,30 @@ func deleteOVSDockerPort(vnfName string, inaterfaceName string, switchName strin
 	return "ovs Docker port Deleted"
 }
 
+func setSflowAgent(switchName string, agentId string, senderInterface string, collectorIp string, collectorPort string, samplingRate string, pollingRate string, wg *sync.WaitGroup) string {
+
+	setSflowAgentCommand := "ovs-vsctl -- --id=" + agentId + " create sflow agent=" + senderInterface + " target=\"" + collectorIp + ":" + collectorPort + "\" sampling=" + samplingRate + " polling=" + pollingRate + " -- -- set bridge " + switchName + " sflow=" + agentId
+	id, errSetSflowAgentCommand := exec.Command("bash", "-c", setSflowAgentCommand).Output()
+	if errSetSflowAgentCommand != nil {
+		fmt.Printf("%s", errSetSflowAgentCommand)
+	}
+
+	wg.Done() // Need to signal to waitgroup that this goroutine is done
+	return string(id)
+}
+
+func deleteSflowAgent(switchName string, agentId string, wg *sync.WaitGroup) string {
+
+	deleteSflowAgentCommand := "ovs-vsctl remove bridge " + switchName + " sflow " + agentId
+	_, errDeleteSflowAgentCommand := exec.Command("bash", "-c", deleteSflowAgentCommand).Output()
+	if errDeleteSflowAgentCommand != nil {
+		fmt.Printf("%s", errDeleteSflowAgentCommand)
+	}
+
+	wg.Done() // Need to signal to waitgroup that this goroutine is done
+	return "Sflow Agent deleted from " + switchName + " switch"
+}
+
 // ************************ Controllers Handler **********************************************************************
 
 func createSwitchHandler(w http.ResponseWriter, r *http.Request) {
@@ -356,7 +390,43 @@ func deleteAllOVSDockerPortHandler(w http.ResponseWriter, r *http.Request) {
 		// Execute Command to Create veth pair and connect them to switches
 		wg := new(sync.WaitGroup)
 		wg.Add(1)
-		am := deleteAllOVSDockerPort(oVSDockerPort.VnfName,oVSDockerPort.SwitchName, wg)
+		am := deleteAllOVSDockerPort(oVSDockerPort.VnfName, oVSDockerPort.SwitchName, wg)
+		wg.Wait()
+		fmt.Fprintf(w, am)
+	}
+}
+
+func setSflowAgentHandler(w http.ResponseWriter, r *http.Request) {
+	sflowAgent := SflowAgent{} //initialize empty VethPair
+	err := json.NewDecoder(r.Body).Decode(&sflowAgent)
+	if err != nil {
+		panic(err)
+	}
+	if len(sflowAgent.AgentId) == 0 || len(sflowAgent.SwitchName) == 0 || len(sflowAgent.SenderInterface) == 0 || len(sflowAgent.CollectorIp) == 0 || len(sflowAgent.CollectorPort) == 0 || len(sflowAgent.SamplingRate) == 0 || len(sflowAgent.PollingRate) == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+	} else {
+		// Execute Command to Create veth pair and connect them to switches
+		wg := new(sync.WaitGroup)
+		wg.Add(1)
+		am := setSflowAgent(sflowAgent.SwitchName, sflowAgent.AgentId, sflowAgent.SenderInterface, sflowAgent.CollectorIp, sflowAgent.CollectorPort, sflowAgent.SamplingRate, sflowAgent.PollingRate, wg)
+		wg.Wait()
+		fmt.Fprintf(w, am)
+	}
+}
+
+func deleteSflowAgentHandler(w http.ResponseWriter, r *http.Request) {
+	sflowAgent := SflowAgent{} //initialize empty VethPair
+	err := json.NewDecoder(r.Body).Decode(&sflowAgent)
+	if err != nil {
+		panic(err)
+	}
+	if len(sflowAgent.AgentId) == 0 || len(sflowAgent.SwitchName) == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+	} else {
+		// Execute Command to Create veth pair and connect them to switches
+		wg := new(sync.WaitGroup)
+		wg.Add(1)
+		am := deleteSflowAgent(sflowAgent.SwitchName, sflowAgent.AgentId, wg)
 		wg.Wait()
 		fmt.Fprintf(w, am)
 	}
@@ -398,7 +468,10 @@ func main() {
 	http.HandleFunc("/deleteOVSDockerPort", deleteOVSDockerPortHandler)
 	http.HandleFunc("/deleteALlOVSDockerPort", deleteAllOVSDockerPortHandler)
 
-	http.ListenAndServe(":8000", nil)
+	// Set/Delete SFlow Agent
+	http.HandleFunc("/setSflowAgent", setSflowAgentHandler)
+	http.HandleFunc("/deleteSflowAgent", deleteSflowAgentHandler)
 
+	http.ListenAndServe(":8000", nil)
 
 }
