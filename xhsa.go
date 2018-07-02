@@ -64,9 +64,7 @@ func createSwitch(switchName string, switchControllerIp string, switchController
 	wg.Done() // Need to signal to waitgroup that this goroutine is done
 	//return string(outCreateIpLink[:])
 	t := time.Now()
-	fmt.Println(t.String())
 	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Switch " + switchName + " Created")
-	fmt.Println()
 	return "Switch " + switchName + " Created"
 }
 
@@ -80,7 +78,6 @@ func deleteSwitch(switchName string, wg *sync.WaitGroup) string {
 
 	wg.Done() // Need to signal to waitgroup that this goroutine is done
 	t := time.Now()
-	fmt.Println(t.String())
 	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Switch " + switchName + " Deleted")
 	return "Switch " + switchName + " Deleted"
 }
@@ -122,7 +119,6 @@ func createVethPair(switchL string, switchR string, wg *sync.WaitGroup) string {
 
 	wg.Done() // Need to signal to waitgroup that this goroutine is done
 	t := time.Now()
-	fmt.Println(t.String())
 	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Veth pair " + switchL + "_" + switchR + " Created")
 	return "Veth pair " + switchL + "_" + switchR + " Created"
 }
@@ -151,7 +147,6 @@ func deleteVethPair(switchL string, switchR string, wg *sync.WaitGroup) string {
 
 	wg.Done() // Need to signal to waitgroup that this goroutine is done
 	t := time.Now()
-	fmt.Println(t.String())
 	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Veth pair " + switchL + "_" + switchR + " Deleted")
 	return "Veth pair " + switchL + "_" + switchR + " Deleted"
 }
@@ -167,7 +162,6 @@ func createVnfDocker(vnfName string, vnfImage string, wg *sync.WaitGroup) string
 
 	wg.Done() // Need to signal to waitgroup that this goroutine is done
 	t := time.Now()
-	fmt.Println(t.String())
 	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "VNF " + vnfName + " Created")
 	return "VNF " + vnfName + " Created"
 }
@@ -182,7 +176,6 @@ func deleteVnfDocker(vnfName string, wg *sync.WaitGroup) string {
 
 	wg.Done() // Need to signal to waitgroup that this goroutine is done
 	t := time.Now()
-	fmt.Println(t.String())
 	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "VNF " + vnfName + " Deleted")
 	return "VNF " + vnfName + " Deleted"
 }
@@ -197,7 +190,6 @@ func createOVSDockerPort(vnfName string, vnfIpAddress string, vnfInterfaceName s
 
 	wg.Done() // Need to signal to waitgroup that this goroutine is done
 	t := time.Now()
-	fmt.Println(t.String())
 	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "ovs Docker port Created")
 	return "ovs Docker port Created"
 }
@@ -212,7 +204,6 @@ func deleteAllOVSDockerPort(vnfName string, switchName string, wg *sync.WaitGrou
 
 	wg.Done() // Need to signal to waitgroup that this goroutine is done
 	t := time.Now()
-	fmt.Println(t.String())
 	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "ovs Docker port Deleted")
 	return "ovs Docker port Deleted"
 }
@@ -227,14 +218,13 @@ func deleteOVSDockerPort(vnfName string, inaterfaceName string, switchName strin
 
 	wg.Done() // Need to signal to waitgroup that this goroutine is done
 	t := time.Now()
-	fmt.Println(t.String())
 	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "ovs Docker port Deleted")
 	return "ovs Docker port Deleted"
 }
 
 func setSflowAgent(switchName string, agentId string, senderInterface string, collectorIp string, collectorPort string, samplingRate string, pollingRate string, wg *sync.WaitGroup) string {
 
-	setSflowAgentCommand := "ovs-vsctl -- --id=" + agentId + " create sflow agent=" + senderInterface + " target=\"" + collectorIp + ":" + collectorPort + "\" sampling=" + samplingRate + " polling=" + pollingRate + " -- -- set bridge " + switchName + " sflow=" + agentId
+	setSflowAgentCommand := "ovs-vsctl -- --id=" + agentId + " create sflow agent=" + senderInterface + " target=\\\"" + collectorIp + ":" + collectorPort + "\\\" sampling=" + samplingRate + " polling=" + pollingRate + " -- -- set bridge " + switchName + " sflow=" + agentId
 	id, errSetSflowAgentCommand := exec.Command("bash", "-c", setSflowAgentCommand).Output()
 	if errSetSflowAgentCommand != nil {
 		fmt.Printf("%s", errSetSflowAgentCommand)
@@ -242,7 +232,6 @@ func setSflowAgent(switchName string, agentId string, senderInterface string, co
 
 	wg.Done() // Need to signal to waitgroup that this goroutine is done
 	t := time.Now()
-	fmt.Println(t.String())
 	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Sflow Agent " + string(id) + " set on " + switchName)
 	return string(id)
 }
@@ -257,7 +246,6 @@ func deleteSflowAgent(switchName string, agentId string, wg *sync.WaitGroup) str
 
 	wg.Done() // Need to signal to waitgroup that this goroutine is done
 	t := time.Now()
-	fmt.Println(t.String())
 	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Sflow Agent deleted from " + switchName + " switch")
 	return "Sflow Agent deleted from " + switchName + " switch"
 }
