@@ -86,7 +86,7 @@ you can Create any topology with this agent without using Xenium-NFV testbed. Th
     json body (application/json)
 
     {
-        "name": "u2"
+        "name": "u1"
     }
     ```
 
@@ -121,8 +121,8 @@ you can Create any topology with this agent without using Xenium-NFV testbed. Th
     json body (application/json)
 
     {
-        "switchName": "br2",
-        "agentId": "@sflow_br2",
+        "switchName": "br1",
+        "agentId": "@sflow_br1",
         "senderInterface": "ens33",
         "collectorIp": "192.168.1.4",
         "collectorPort": "6343",
@@ -137,7 +137,7 @@ you can Create any topology with this agent without using Xenium-NFV testbed. Th
     json body (application/json)
 
     {
-        "switchName": "br2",
+        "switchName": "br1",
         "agentId": "5e3dee16-55e7-449a-bc82-7dc2b476f821"
     }
     ```
