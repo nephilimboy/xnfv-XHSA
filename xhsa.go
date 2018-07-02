@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"encoding/json"
 	"os/exec"
+	"time"
 )
 
 type VethPair struct {
@@ -62,6 +63,10 @@ func createSwitch(switchName string, switchControllerIp string, switchController
 
 	wg.Done() // Need to signal to waitgroup that this goroutine is done
 	//return string(outCreateIpLink[:])
+	t := time.Now()
+	fmt.Println(t.String())
+	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Switch " + switchName + " Created")
+	fmt.Println()
 	return "Switch " + switchName + " Created"
 }
 
@@ -74,7 +79,9 @@ func deleteSwitch(switchName string, wg *sync.WaitGroup) string {
 	}
 
 	wg.Done() // Need to signal to waitgroup that this goroutine is done
-	//return string(outCreateIpLink[:])
+	t := time.Now()
+	fmt.Println(t.String())
+	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Switch " + switchName + " Deleted")
 	return "Switch " + switchName + " Deleted"
 }
 
@@ -114,7 +121,9 @@ func createVethPair(switchL string, switchR string, wg *sync.WaitGroup) string {
 	}
 
 	wg.Done() // Need to signal to waitgroup that this goroutine is done
-	//return string(outCreateIpLink[:])
+	t := time.Now()
+	fmt.Println(t.String())
+	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Veth pair " + switchL + "_" + switchR + " Created")
 	return "Veth pair " + switchL + "_" + switchR + " Created"
 }
 
@@ -141,7 +150,9 @@ func deleteVethPair(switchL string, switchR string, wg *sync.WaitGroup) string {
 	}
 
 	wg.Done() // Need to signal to waitgroup that this goroutine is done
-	//return string(outCreateIpLink[:])
+	t := time.Now()
+	fmt.Println(t.String())
+	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Veth pair " + switchL + "_" + switchR + " Deleted")
 	return "Veth pair " + switchL + "_" + switchR + " Deleted"
 }
 
@@ -155,7 +166,9 @@ func createVnfDocker(vnfName string, vnfImage string, wg *sync.WaitGroup) string
 	}
 
 	wg.Done() // Need to signal to waitgroup that this goroutine is done
-	//return string(outCreateIpLink[:])
+	t := time.Now()
+	fmt.Println(t.String())
+	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "VNF " + vnfName + " Created")
 	return "VNF " + vnfName + " Created"
 }
 
@@ -168,7 +181,9 @@ func deleteVnfDocker(vnfName string, wg *sync.WaitGroup) string {
 	}
 
 	wg.Done() // Need to signal to waitgroup that this goroutine is done
-	//return string(outCreateIpLink[:])
+	t := time.Now()
+	fmt.Println(t.String())
+	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "VNF " + vnfName + " Deleted")
 	return "VNF " + vnfName + " Deleted"
 }
 
@@ -181,6 +196,9 @@ func createOVSDockerPort(vnfName string, vnfIpAddress string, vnfInterfaceName s
 	}
 
 	wg.Done() // Need to signal to waitgroup that this goroutine is done
+	t := time.Now()
+	fmt.Println(t.String())
+	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "ovs Docker port Created")
 	return "ovs Docker port Created"
 }
 
@@ -193,6 +211,9 @@ func deleteAllOVSDockerPort(vnfName string, switchName string, wg *sync.WaitGrou
 	}
 
 	wg.Done() // Need to signal to waitgroup that this goroutine is done
+	t := time.Now()
+	fmt.Println(t.String())
+	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "ovs Docker port Deleted")
 	return "ovs Docker port Deleted"
 }
 
@@ -205,6 +226,9 @@ func deleteOVSDockerPort(vnfName string, inaterfaceName string, switchName strin
 	}
 
 	wg.Done() // Need to signal to waitgroup that this goroutine is done
+	t := time.Now()
+	fmt.Println(t.String())
+	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "ovs Docker port Deleted")
 	return "ovs Docker port Deleted"
 }
 
@@ -217,6 +241,9 @@ func setSflowAgent(switchName string, agentId string, senderInterface string, co
 	}
 
 	wg.Done() // Need to signal to waitgroup that this goroutine is done
+	t := time.Now()
+	fmt.Println(t.String())
+	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Sflow Agent " + string(id) + " set on " + switchName)
 	return string(id)
 }
 
@@ -229,6 +256,9 @@ func deleteSflowAgent(switchName string, agentId string, wg *sync.WaitGroup) str
 	}
 
 	wg.Done() // Need to signal to waitgroup that this goroutine is done
+	t := time.Now()
+	fmt.Println(t.String())
+	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Sflow Agent deleted from " + switchName + " switch")
 	return "Sflow Agent deleted from " + switchName + " switch"
 }
 
@@ -432,6 +462,11 @@ func deleteSflowAgentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+
+
+
+
+
 func main() {
 	fmt.Println(" ")
 	fmt.Println("****  XNFV Http Server Agent  ****")
@@ -449,7 +484,12 @@ func main() {
 	fmt.Println("[#] - /createOVSDockerPort")
 	fmt.Println("[#] - /deleteOVSDockerPort")
 	fmt.Println("[#] - /deleteALlOVSDockerPort")
+	fmt.Println("[#] - /setSflowAgent")
+	fmt.Println("[#] - /deleteSflowAgent")
 	fmt.Println(" ")
+	fmt.Println("------------ Agent Logs ------------")
+	fmt.Println(" ")
+
 
 	// Create/Delete Switch
 	http.HandleFunc("/createSwitch", createSwitchHandler)
