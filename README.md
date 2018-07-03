@@ -13,7 +13,7 @@ Micro Http Server for Xenuim NFV testbed.
 3. Install docker
 
 ## Run and Build
-Install Golang and then Run below command
+Install Golang then Run below command
 
 ```
 GOOS=linux GOARCH=amd64 go build -v
