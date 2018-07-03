@@ -459,7 +459,7 @@ func main() {
 	fmt.Println(" ")
 	fmt.Println("****  XNFV Http Server Agent  ****")
 	fmt.Println("****  By AH.GHORAB            ****")
-	fmt.Println("****  Version 0.53            ****")
+	fmt.Println("****  Version 0.54            ****")
 	fmt.Println("****  Summer 2018             ****")
 	fmt.Println("------------------------------------")
 	fmt.Println("[*] Agent Running at localhost:8000")
