@@ -31,7 +31,7 @@ you can Create any topology with this agent without using Xenium-NFV testbed. Th
 
 ### Create Switch
 
-    ```
+
     http://Agent-server-IP:8000/createSwitch
 
     json body (application/json)
@@ -41,11 +41,11 @@ you can Create any topology with this agent without using Xenium-NFV testbed. Th
         "SwitchControllerIp": "172.17.8.37",
         "SwitchControllerPort": "6633"
     }
-    ```
+
 
 ### Delete Switch
 
-    ```
+
     http://Agent-server-IP:8000/deleteSwitch
 
     json body (application/json)
@@ -53,11 +53,11 @@ you can Create any topology with this agent without using Xenium-NFV testbed. Th
     {
         "SwitchName": "br1"
     }
-    ```
+
 
 ### Create switches Veth Pairs
 
-    ```
+
     http://Agent-server-IP:8000/createVethPair
 
     json body (application/json)
@@ -66,11 +66,11 @@ you can Create any topology with this agent without using Xenium-NFV testbed. Th
         "switchL": "br1",
         "switchR": "br2"
     }
-    ```
+
 
 ### Delete switches Veth Pairs
 
-    ```
+
     http://Agent-server-IP:8000/deleteVethPair
 
     json body (application/json)
@@ -79,7 +79,7 @@ you can Create any topology with this agent without using Xenium-NFV testbed. Th
         "switchL": "br1",
         "switchR": "br2"
     }
-    ```
+
 
 ### Create Docker container (As a VNF or Host)
     you can download basic VNF image from here
@@ -92,13 +92,13 @@ you can Create any topology with this agent without using Xenium-NFV testbed. Th
 
     {
         "name": "u1",
-        "img": "ubuntu:16.04"
+        "img": "nephilimboy/xnfv_vnf_basic"
     }
 
 
 ### Delete Docker container
 
-    ```
+
     http://Agent-server-IP:8000/deleteVNFDocker
 
     json body (application/json)
@@ -106,11 +106,11 @@ you can Create any topology with this agent without using Xenium-NFV testbed. Th
     {
         "name": "u1"
     }
-    ```
+
 
 ### Connect Docker Container to switch
 
-    ```
+
     http://Agent-server-IP:8000/createOVSDockerPort
 
     json body (application/json)
@@ -121,11 +121,11 @@ you can Create any topology with this agent without using Xenium-NFV testbed. Th
         "vnfInterfaceName": "eth0",
         "switchName": "br1"
     }
-    ```
+
 
 ### Disconnect Docker Container from switch
 
-    ```
+
     http://Agent-server-IP:8000/deleteOVSDockerPort
 
     json body (application/json)
@@ -135,11 +135,11 @@ you can Create any topology with this agent without using Xenium-NFV testbed. Th
         "vnfInterfaceName": "eth0",
         "switchName": "br1"
     }
-    ```
+
 
 ### Set SFlow Agent on Switch
 
-    ```
+
     http://Agent-server-IP:8000/setSflowAgent
 
     json body (application/json)
@@ -153,11 +153,11 @@ you can Create any topology with this agent without using Xenium-NFV testbed. Th
         "samplingRate": "10",
         "pollingRate": "10"
     }
-    ```
+
 
 ### Remove SFlow Agent from Switch
 
-    ```
+
     http://Agent-server-IP:8000/deleteSflowAgent
 
     json body (application/json)
@@ -166,7 +166,7 @@ you can Create any topology with this agent without using Xenium-NFV testbed. Th
         "switchName": "br1",
         "agentId": "5e3dee16-55e7-449a-bc82-7dc2b476f821"
     }
-    ```
+
 
 
 
