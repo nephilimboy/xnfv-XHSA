@@ -27,7 +27,7 @@ sudo ./xsha
 ```
 
 ## Using XNFV Http Server Agent
-you can Create any topology with this agent without using Xenium-NFV testbed. The XSHA using rest API to execute commands.
+You can Create any topology with this agent without using Xenium-NFV testbed. The XSHA using rest API to execute commands.
 
 ### Create Switch
 
