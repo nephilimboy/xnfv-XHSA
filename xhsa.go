@@ -182,7 +182,7 @@ func deleteVnfDocker(vnfName string, wg *sync.WaitGroup) string {
 
 func createOVSDockerPort(vnfName string, vnfIpAddress string, vnfInterfaceName string, switchName string, wg *sync.WaitGroup) string {
 
-	createOVSDockerPort := "ovs-docker add-port " + switchName + " " + vnfInterfaceName + " " + vnfName + " --ipaddress=" + vnfIpAddress + "/24"
+	createOVSDockerPort := "ovs-docker add-port " + switchName + " " + vnfInterfaceName + " " + vnfName + " --ipaddress=" + vnfIpAddress + "/24 --mtu=1400"
 	_, errCreateOVSDockerPort := exec.Command("bash", "-c", createOVSDockerPort).Output()
 	if errCreateOVSDockerPort != nil {
 		fmt.Printf("%s", errCreateOVSDockerPort)
