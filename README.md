@@ -1,4 +1,4 @@
-# XNFV Http Server Agent (XSHA)
+# XNFV Http Server Agent (XHSA)
 Micro Http Server for Xenuim NFV testbed.
 
 ## Requirements
@@ -19,11 +19,11 @@ Install Golang then Run below command
 GOOS=linux GOARCH=amd64 go build -v
 ```
 
-OR you can download the pre-build version "xsha" from root directory
+OR you can download the pre-build version "xhsa" from root directory
 
 ```
-sudo chmod +x xsha
-sudo ./xsha
+sudo chmod +x xhsa
+sudo ./xhsa
 ```
 
 ## Using XNFV Http Server Agent
