@@ -29,6 +29,23 @@ type VnfDocker struct {
 	Image string `json:"img"`
 }
 
+type NetworkCard struct {
+	Name       string `json:"name"`
+	IpAddress  string `json:"ipAddress"`
+	MacAddress string `json:"macAddress"`
+}
+
+type HostStatus struct {
+	Cpu          string `json:"cpu"`
+	Ram          string `json:"ram"`
+	Hhd          string `json:"hhd"`
+	CpuUsage     string `json:"cpuUsage"`
+	RamUsage     string `json:"ramUsage"`
+	HhdUsage     string `json:"hhdUsage"`
+	OvsVersion   string `json:"ovsVersion"`
+	networkCards []NetworkCard
+}
+
 type OVSDockerPort struct {
 	VnfName          string `json:"vnfName"`
 	VnfIpAddress     string `json:"vnfIpAddress"`
@@ -44,6 +61,12 @@ type SflowAgent struct {
 	CollectorPort   string `json:"collectorPort"`
 	SamplingRate    string `json:"samplingRate"`
 	PollingRate     string `json:"pollingRate"`
+}
+
+type ContainerCommand struct {
+	ContainerName      string `json:"containerName"`
+	CommandName        string `json:"commandName"`
+	Command            string `json:"command"`
 }
 
 func createSwitch(switchName string, switchControllerIp string, switchControllerPort string, wg *sync.WaitGroup) string {
@@ -250,6 +273,107 @@ func deleteSflowAgent(switchName string, agentId string, wg *sync.WaitGroup) str
 	return "Sflow Agent deleted from " + switchName + " switch"
 }
 
+//func getHostStatus(wg *sync.WaitGroup) HostStatus {
+//	hostStatus := HostStatus{}
+//
+//	// Get Cpu
+//	getCpuStatusCommand := "top -bn1 | grep 'Cpu(s)' | sed 's/.*, *\\([0-9.]*\\)%* id.*/\\1/' | awk '{print 100 - $1''}'"
+//	cpuStatus, errGetCpuStatusCommand:= exec.Command("bash", "-c", getCpuStatusCommand).Output()
+//	if errGetCpuStatusCommand != nil {
+//		fmt.Printf("%s", errGetCpuStatusCommand)
+//		hostStatus.Cpu = ""
+//	} else {
+//		hostStatus.Cpu = string(cpuStatus)
+//	}
+//
+//	// Get Ram
+//	getRamStatusCommand := "top -bn1 | grep 'Cpu(s)' | sed 's/.*, *\\([0-9.]*\\)%* id.*/\\1/' | awk '{print 100 - $1''}'"
+//	ramStatus, errGetRamStatusCommand := exec.Command("bash", "-c", getRamStatusCommand).Output()
+//	if errGetRamStatusCommand != nil {
+//		fmt.Printf("%s", errGetRamStatusCommand)
+//		hostStatus.Ram = ""
+//	} else {
+//		hostStatus.Ram = string(ramStatus)
+//	}
+//
+//	// Get hhd
+//	getHhdStatusCommand := "top -bn1 | grep 'Cpu(s)' | sed 's/.*, *\\([0-9.]*\\)%* id.*/\\1/' | awk '{print 100 - $1''}'"
+//	hhdStatus, errGetHhdStatusCommand := exec.Command("bash", "-c", getHhdStatusCommand).Output()
+//	if errGetHhdStatusCommand != nil {
+//		fmt.Printf("%s", errGetHhdStatusCommand)
+//		hostStatus.Cpu = ""
+//	} else {
+//		hostStatus.Cpu = string(hhdStatus)
+//	}
+//
+//	// Get Ram
+//	getCpuUsageCommand := "top -bn1 | grep 'Cpu(s)' | sed 's/.*, *\\([0-9.]*\\)%* id.*/\\1/' | awk '{print 100 - $1''}'"
+//	cpuUsage, errGetCpuUsageCommand := exec.Command("bash", "-c", getCpuUsageCommand).Output()
+//	if errGetCpuUsageCommand != nil {
+//		fmt.Printf("%s", errGetCpuUsageCommand)
+//		hostStatus.Cpu = ""
+//	} else {
+//		hostStatus.Cpu = string(cpuUsage)
+//	}
+//
+//	// Get Ram
+//	getCpuStatusCommand := "top -bn1 | grep 'Cpu(s)' | sed 's/.*, *\\([0-9.]*\\)%* id.*/\\1/' | awk '{print 100 - $1''}'"
+//	output, errDelOVSLinkL := exec.Command("bash", "-c", getCpuStatusCommand).Output()
+//	if errDelOVSLinkL != nil {
+//		fmt.Printf("%s", errDelOVSLinkL)
+//		hostStatus.Cpu = ""
+//	} else {
+//		hostStatus.Cpu = string(output)
+//	}
+//
+//	// Get Ram
+//	getCpuStatusCommand := "top -bn1 | grep 'Cpu(s)' | sed 's/.*, *\\([0-9.]*\\)%* id.*/\\1/' | awk '{print 100 - $1''}'"
+//	output, errDelOVSLinkL := exec.Command("bash", "-c", getCpuStatusCommand).Output()
+//	if errDelOVSLinkL != nil {
+//		fmt.Printf("%s", errDelOVSLinkL)
+//		hostStatus.Cpu = ""
+//	} else {
+//		hostStatus.Cpu = string(output)
+//	}
+//
+//	// Get Ram
+//	getCpuStatusCommand := "top -bn1 | grep 'Cpu(s)' | sed 's/.*, *\\([0-9.]*\\)%* id.*/\\1/' | awk '{print 100 - $1''}'"
+//	output, errDelOVSLinkL := exec.Command("bash", "-c", getCpuStatusCommand).Output()
+//	if errDelOVSLinkL != nil {
+//		fmt.Printf("%s", errDelOVSLinkL)
+//		hostStatus.Cpu = ""
+//	} else {
+//		hostStatus.Cpu = string(output)
+//	}
+//
+//	// Get Ram
+//	getCpuStatusCommand := "top -bn1 | grep 'Cpu(s)' | sed 's/.*, *\\([0-9.]*\\)%* id.*/\\1/' | awk '{print 100 - $1''}'"
+//	output, errDelOVSLinkL := exec.Command("bash", "-c", getCpuStatusCommand).Output()
+//	if errDelOVSLinkL != nil {
+//		fmt.Printf("%s", errDelOVSLinkL)
+//		hostStatus.Cpu = ""
+//	} else {
+//		hostStatus.Cpu = string(output)
+//	}
+//
+//	wg.Done() // Need to signal to waitgroup that this goroutine is done
+//	t := time.Now()
+//	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Get Host Status")
+//	return hostStatus
+//}
+
+func containerExecCommand(containerCommand ContainerCommand, wg *sync.WaitGroup) string {
+	// exec command inside container
+	command := "docker exec -d " +  containerCommand.ContainerName + " screen -S " + containerCommand.CommandName + " -d  -m /bin/bash -c '" + containerCommand.Command +" | tee /var/log/" + containerCommand.CommandName + ".log'"
+	_, errExecCommand := exec.Command("bash", "-c", command).Output()
+	if errExecCommand != nil {
+		fmt.Printf("%s", errExecCommand)
+	}
+	wg.Done() // Need to signal to waitgroup that this goroutine is done
+	t := time.Now()
+	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Command " + containerCommand.CommandName + " is executed. Log file available in /var/log/" + containerCommand.CommandName + ".log")
+	return "Command " + containerCommand.CommandName + " is executed | Log file available in /var/log/" + containerCommand.CommandName + ".log"
+}
 // ************************ Controllers Handler **********************************************************************
 
 func createSwitchHandler(w http.ResponseWriter, r *http.Request) {
@@ -450,16 +574,38 @@ func deleteSflowAgentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func getHostStatusHandler(w http.ResponseWriter, r *http.Request) {
+	//wg := new(sync.WaitGroup)
+	//wg.Add(1)
+	//hostStatus := getHostStatus(wg)
+	//wg.Wait()
+	//fmt.Fprintf(w, hostStatus)
 
+}
 
-
-
+func containerExecCommandHandler(w http.ResponseWriter, r *http.Request) {
+	containerCommand := ContainerCommand{} //initialize empty VethPair
+	err := json.NewDecoder(r.Body).Decode(&containerCommand)
+	if err != nil {
+		panic(err)
+	}
+	if len(containerCommand.Command) == 0 || len(containerCommand.ContainerName) == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+	} else {
+		// Execute Command to Create veth pair and connect them to switches
+		wg := new(sync.WaitGroup)
+		wg.Add(1)
+		am := containerExecCommand(containerCommand, wg)
+		wg.Wait()
+		fmt.Fprintf(w, am)
+	}
+}
 
 func main() {
 	fmt.Println(" ")
 	fmt.Println("****  XNFV Http Server Agent  ****")
 	fmt.Println("****  By AH.GHORAB            ****")
-	fmt.Println("****  Version 0.54            ****")
+	fmt.Println("****  Version 1.1            ****")
 	fmt.Println("****  Summer 2018             ****")
 	fmt.Println("------------------------------------")
 	fmt.Println("[*] Agent Running at localhost:8000")
@@ -475,10 +621,13 @@ func main() {
 	fmt.Println("[#] - /deleteALlOVSDockerPort")
 	fmt.Println("[#] - /setSflowAgent")
 	fmt.Println("[#] - /deleteSflowAgent")
+	fmt.Println("[#] - /getHostStatus")
+	fmt.Println("[#] - /containerExecCommand")
+	fmt.Println("	 - Params: {ContainerName, CommandName, Command}")
+	fmt.Println("	 - To stop infinit Commands(like ping) execute -> screen -X -S Command_Name kill")
 	fmt.Println(" ")
 	fmt.Println("------------ Agent Logs ------------")
 	fmt.Println(" ")
-
 
 	// Create/Delete Switch
 	http.HandleFunc("/createSwitch", createSwitchHandler)
@@ -500,6 +649,12 @@ func main() {
 	// Set/Delete SFlow Agent
 	http.HandleFunc("/setSflowAgent", setSflowAgentHandler)
 	http.HandleFunc("/deleteSflowAgent", deleteSflowAgentHandler)
+
+	// Server Statistics
+	http.HandleFunc("/getHostStatus", getHostStatusHandler)
+
+	// Execute Command inside Container
+	http.HandleFunc("/containerExecCommand", containerExecCommandHandler)
 
 	http.ListenAndServe(":8000", nil)
 
