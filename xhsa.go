@@ -64,9 +64,9 @@ type SflowAgent struct {
 }
 
 type ContainerCommand struct {
-	ContainerName      string `json:"containerName"`
-	CommandName        string `json:"commandName"`
-	Command            string `json:"command"`
+	ContainerName string `json:"containerName"`
+	CommandName   string `json:"commandName"`
+	Command       string `json:"command"`
 }
 
 func createSwitch(switchName string, switchControllerIp string, switchControllerPort string, wg *sync.WaitGroup) string {
@@ -78,10 +78,11 @@ func createSwitch(switchName string, switchControllerIp string, switchController
 	}
 
 	// Set Controller
-	setController := "ovs-vsctl set-controller " + switchName + " tcp:" + switchControllerIp + ":" + switchControllerPort
-	_, errSetController := exec.Command("bash", "-c", setController).Output()
-	if errSetController != nil {
-		fmt.Printf("%s", errSetController)
+	if len(switchControllerIp) != 0 {
+		if len(switchControllerPort) != 0 {
+			setSwitchController(switchName, switchControllerIp, switchControllerPort, wg)
+		}
+		setSwitchController(switchName, switchControllerIp, "6633", wg)
 	}
 
 	wg.Done() // Need to signal to waitgroup that this goroutine is done
@@ -103,6 +104,21 @@ func deleteSwitch(switchName string, wg *sync.WaitGroup) string {
 	t := time.Now()
 	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Switch " + switchName + " Deleted")
 	return "Switch " + switchName + " Deleted"
+}
+
+func setSwitchController(switchName string, switchControllerIp string, switchControllerPort string, wg *sync.WaitGroup) string {
+	// Set Controller
+	setController := "ovs-vsctl set-controller " + switchName + " tcp:" + switchControllerIp + ":" + switchControllerPort
+	_, errSetController := exec.Command("bash", "-c", setController).Output()
+	if errSetController != nil {
+		fmt.Printf("%s", errSetController)
+	}
+
+	wg.Done() // Need to signal to waitgroup that this goroutine is done
+	//return string(outCreateIpLink[:])
+	t := time.Now()
+	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Switch " + switchName + " Controller set to " + " tcp:" + switchControllerIp + ":" + switchControllerPort)
+	return "Switch " + switchName + " Controller set to " + " tcp:" + switchControllerIp + ":" + switchControllerPort
 }
 
 func createVethPair(switchL string, switchR string, wg *sync.WaitGroup) string {
@@ -364,7 +380,7 @@ func deleteSflowAgent(switchName string, agentId string, wg *sync.WaitGroup) str
 
 func containerExecCommand(containerCommand ContainerCommand, wg *sync.WaitGroup) string {
 	// exec command inside container
-	command := "docker exec -d " +  containerCommand.ContainerName + " screen -S " + containerCommand.CommandName + " -d  -m /bin/bash -c '" + containerCommand.Command +" | tee /var/log/" + containerCommand.CommandName + ".log'"
+	command := "docker exec -d " + containerCommand.ContainerName + " screen -S " + containerCommand.CommandName + " -d  -m /bin/bash -c '" + containerCommand.Command + " | tee /var/log/" + containerCommand.CommandName + ".log'"
 	_, errExecCommand := exec.Command("bash", "-c", command).Output()
 	if errExecCommand != nil {
 		fmt.Printf("%s", errExecCommand)
@@ -374,6 +390,7 @@ func containerExecCommand(containerCommand ContainerCommand, wg *sync.WaitGroup)
 	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Command " + containerCommand.CommandName + " is executed. Log file available in /var/log/" + containerCommand.CommandName + ".log")
 	return "Command " + containerCommand.CommandName + " is executed | Log file available in /var/log/" + containerCommand.CommandName + ".log"
 }
+
 // ************************ Controllers Handler **********************************************************************
 
 func createSwitchHandler(w http.ResponseWriter, r *http.Request) {
@@ -382,7 +399,7 @@ func createSwitchHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	if len(swch.SwitchName) == 0 || len(swch.SwitchControllerIp) == 0 || len(swch.SwitchControllerPort) == 0 {
+	if len(swch.SwitchName) == 0 {
 		w.WriteHeader(http.StatusBadRequest)
 	} else {
 		// Execute Command to Create veth pair and connect them to switches
@@ -407,6 +424,24 @@ func deleteSwitchHandler(w http.ResponseWriter, r *http.Request) {
 		wg := new(sync.WaitGroup)
 		wg.Add(1)
 		am := deleteSwitch(swch.SwitchName, wg)
+		wg.Wait()
+		fmt.Fprintf(w, am)
+	}
+}
+
+func setSwitchControllerHandler(w http.ResponseWriter, r *http.Request) {
+	swch := Switch{} //initialize empty VethPair
+	err := json.NewDecoder(r.Body).Decode(&swch)
+	if err != nil {
+		panic(err)
+	}
+	if len(swch.SwitchName) == 0 || len(swch.SwitchControllerIp) == 0 || len(swch.SwitchControllerPort) == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+	} else {
+		// Execute Command to Create veth pair and connect them to switches
+		wg := new(sync.WaitGroup)
+		wg.Add(1)
+		am := setSwitchController(swch.SwitchName, swch.SwitchControllerIp, swch.SwitchControllerPort, wg)
 		wg.Wait()
 		fmt.Fprintf(w, am)
 	}
@@ -612,6 +647,7 @@ func main() {
 	fmt.Println("[*] Valid rest URLs")
 	fmt.Println("[#] - /createSwitch")
 	fmt.Println("[#] - /deleteSwitch")
+	fmt.Println("[#] - /setSwitchController")
 	fmt.Println("[#] - /createVethPair")
 	fmt.Println("[#] - /deleteVethPair")
 	fmt.Println("[#] - /createVNFDocker")
@@ -632,6 +668,7 @@ func main() {
 	// Create/Delete Switch
 	http.HandleFunc("/createSwitch", createSwitchHandler)
 	http.HandleFunc("/deleteSwitch", deleteSwitchHandler)
+	http.HandleFunc("/setSwitchController", setSwitchControllerHandler)
 
 	// Create/ Delete Veth Pair
 	http.HandleFunc("/createVethPair", createVethPairHandler)
