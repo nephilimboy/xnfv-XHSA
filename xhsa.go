@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"os/exec"
 	"time"
+	"bytes"
+	"os"
 )
 
 type VethPair struct {
@@ -380,15 +382,31 @@ func deleteSflowAgent(switchName string, agentId string, wg *sync.WaitGroup) str
 
 func containerExecCommand(containerCommand ContainerCommand, wg *sync.WaitGroup) string {
 	// exec command inside container
-	command := "docker exec -d " + containerCommand.ContainerName + " screen -S " + containerCommand.CommandName + " -d  -m /bin/bash -c '" + containerCommand.Command + " | tee /var/log/" + containerCommand.CommandName + ".log'"
-	_, errExecCommand := exec.Command("bash", "-c", command).Output()
-	if errExecCommand != nil {
-		fmt.Printf("%s", errExecCommand)
+	//command := "docker exec -d " + containerCommand.ContainerName + " screen -S " + containerCommand.CommandName + " -d  -m /bin/bash -c '" + containerCommand.Command + " | tee /var/log/" + containerCommand.CommandName + ".log'"
+	//command := "docker exec -d " + containerCommand.ContainerName + " nohup "  + containerCommand.Command + " >> /var/log/" + containerCommand.CommandName + ".log &"
+	//command := "sudo docker exec -d " + containerCommand.ContainerName + "  bash -c '" +
+	//	containerCommand.Command + " > /var/log/" +
+	//	containerCommand.CommandName + ".log & echo $!>" +
+	//	containerCommand.CommandName+ ".pid' && " + "sudo docker exec " + containerCommand.ContainerName + " tail /" + containerCommand.CommandName + ".pid"
+	//_, errExecCommand := exec.Command("bash", "-c", command).Output()
+	//if errExecCommand != nil {
+	//	fmt.Printf("%s", errExecCommand)
+	//}
+
+	commandReadPid := "sudo docker exec " + containerCommand.ContainerName + "  bash -c '" +
+		containerCommand.Command + " &> /var/log/" +
+		containerCommand.CommandName + ".log & echo $!'"
+	cmd := exec.Command("bash", "-c", commandReadPid)
+	cmdOutput := &bytes.Buffer{}
+	cmd.Stdout = cmdOutput
+	err := cmd.Run() // will wait for command to return
+	if err != nil {
+		os.Stderr.WriteString(fmt.Sprintf("==> Error: %s\n", err.Error()))
 	}
 	wg.Done() // Need to signal to waitgroup that this goroutine is done
 	t := time.Now()
-	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Command " + containerCommand.CommandName + " is executed. Log file available in /var/log/" + containerCommand.CommandName + ".log")
-	return "Command " + containerCommand.CommandName + " is executed | Log file available in /var/log/" + containerCommand.CommandName + ".log"
+	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Command " + containerCommand.CommandName + " is executed Pid is " + string(cmdOutput.Bytes()) + " . Log file available in /var/log/" + containerCommand.CommandName + ".log")
+	return "Command " + containerCommand.CommandName + " is executed. Pid -> " + string(cmdOutput.Bytes()) + " [*] Log file is available in /var/log/" + containerCommand.CommandName + ".log"
 }
 
 // ************************ Controllers Handler **********************************************************************
@@ -640,7 +658,7 @@ func main() {
 	fmt.Println(" ")
 	fmt.Println("****  XNFV Http Server Agent  ****")
 	fmt.Println("****  By AH.GHORAB            ****")
-	fmt.Println("****  Version 1.1            ****")
+	fmt.Println("****  Version 1.6            ****")
 	fmt.Println("****  Summer 2018             ****")
 	fmt.Println("------------------------------------")
 	fmt.Println("[*] Agent Running at localhost:8000")
@@ -660,7 +678,7 @@ func main() {
 	fmt.Println("[#] - /getHostStatus")
 	fmt.Println("[#] - /containerExecCommand")
 	fmt.Println("	 - Params: {ContainerName, CommandName, Command}")
-	fmt.Println("	 - To stop infinit Commands(like ping) execute -> screen -X -S Command_Name kill")
+	fmt.Println("	 - To stop infinit Commands(like ping) execute -> Kill -9 Command_PID")
 	fmt.Println(" ")
 	fmt.Println("------------ Agent Logs ------------")
 	fmt.Println(" ")
