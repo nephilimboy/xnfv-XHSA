@@ -71,6 +71,13 @@ type ContainerCommand struct {
 	Command       string `json:"command"`
 }
 
+type Container struct {
+	Image          string `json:"image"`
+	ContainerName string `json:"containerName"`
+	InitCommand    string `json:"initCommand"`
+	Ports          string `json:"ports"`
+}
+
 func createSwitch(switchName string, switchControllerIp string, switchControllerPort string, wg *sync.WaitGroup) string {
 	// Create Switch
 	createSwitch := "ovs-vsctl add-br " + switchName
@@ -409,6 +416,24 @@ func containerExecCommand(containerCommand ContainerCommand, wg *sync.WaitGroup)
 	return "Command " + containerCommand.CommandName + " is executed. Pid -> " + string(cmdOutput.Bytes()) + " [*] Log file is available in /var/log/" + containerCommand.CommandName + ".log"
 }
 
+func checkContainerExistByName(container Container, wg *sync.WaitGroup) string {
+	commandCheck := "sudo docker ps -a --format '{{.Names}}' | grep -sw " + container.ContainerName
+	ifContainerExist, errIfContainerExist := exec.Command("bash", "-c", commandCheck).Output()
+	if errIfContainerExist != nil {
+		fmt.Printf("%s", errIfContainerExist)
+	}
+	wg.Done() // Need to signal to waitgroup that this goroutine is done
+	t := time.Now()
+	if (string(ifContainerExist) != "") {
+		fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Countainer " + container.ContainerName + " exist in this host")
+		return "true"
+	} else {
+		fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Countainer " + container.ContainerName + " does not exist in this host")
+		return "false"
+	}
+
+}
+
 // ************************ Controllers Handler **********************************************************************
 
 func createSwitchHandler(w http.ResponseWriter, r *http.Request) {
@@ -654,12 +679,30 @@ func containerExecCommandHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func checkContainerExistByNameHandler(w http.ResponseWriter, r *http.Request) {
+	container := Container{} //initialize empty VethPair
+	err := json.NewDecoder(r.Body).Decode(&container)
+	if err != nil {
+		panic(err)
+	}
+	if len(container.ContainerName) == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+	} else {
+		// Execute Command to Create veth pair and connect them to switches
+		wg := new(sync.WaitGroup)
+		wg.Add(1)
+		am := checkContainerExistByName(container, wg)
+		wg.Wait()
+		fmt.Fprintf(w, am)
+	}
+}
+
 func main() {
 	fmt.Println(" ")
 	fmt.Println("****  XNFV Http Server Agent  ****")
 	fmt.Println("****  By AH.GHORAB            ****")
-	fmt.Println("****  Version 1.6            ****")
-	fmt.Println("****  Summer 2018             ****")
+	fmt.Println("****  Version 1.8             ****")
+	fmt.Println("****  Fall 2018             ****")
 	fmt.Println("------------------------------------")
 	fmt.Println("[*] Agent Running at localhost:8000")
 	fmt.Println("[*] Valid rest URLs")
@@ -679,6 +722,7 @@ func main() {
 	fmt.Println("[#] - /containerExecCommand")
 	fmt.Println("	 - Params: {ContainerName, CommandName, Command}")
 	fmt.Println("	 - To stop infinit Commands(like ping) execute -> Kill -9 Command_PID")
+	fmt.Println("[#] - /checkContainerExistByName")
 	fmt.Println(" ")
 	fmt.Println("------------ Agent Logs ------------")
 	fmt.Println(" ")
@@ -710,6 +754,9 @@ func main() {
 
 	// Execute Command inside Container
 	http.HandleFunc("/containerExecCommand", containerExecCommandHandler)
+
+	// Checking Commands
+	http.HandleFunc("/checkContainerExistByName", checkContainerExistByNameHandler)
 
 	http.ListenAndServe(":8000", nil)
 
