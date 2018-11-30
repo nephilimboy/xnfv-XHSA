@@ -84,7 +84,6 @@ type Container struct {
 	Ports          string `json:"ports"`
 }
 
-
 func createSwitch(switchName string, switchControllerIp string, switchControllerPort string, wg *sync.WaitGroup) string {
 	// Create Switch
 	createSwitch := "ovs-vsctl add-br " + switchName
@@ -490,6 +489,26 @@ func createDockerContainerWithPortMap(container Container, wg *sync.WaitGroup) s
 	return "Container " + container.ContainerName + " Created"
 }
 
+func updateVNFDocker(container Container, wg *sync.WaitGroup) string {
+	updateVnfDocker := "docker update "
+	if(container.Ram != ""){
+		updateVnfDocker += "--memory=\"" + container.Ram + "m\" "
+	}
+	if(container.Cpu != ""){
+		updateVnfDocker += "--cpus=\"" + container.Cpu + "\" "
+	}
+	updateVnfDocker += container.ContainerName
+	_, errUpdateVnfDocker := exec.Command("bash", "-c", updateVnfDocker).Output()
+	if errUpdateVnfDocker != nil {
+		fmt.Printf("%s", errUpdateVnfDocker)
+	}
+
+	wg.Done() // Need to signal to waitgroup that this goroutine is done
+	t := time.Now()
+	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Container " + container.ContainerName + " Created")
+	return "Container " + container.ContainerName + " updated"
+}
+
 // ************************ Controllers Handler **********************************************************************
 
 func createSwitchHandler(w http.ResponseWriter, r *http.Request) {
@@ -789,11 +808,29 @@ func createDockerContainerWithPortMapHandler(w http.ResponseWriter, r *http.Requ
 	}
 }
 
+func updateVNFDockerHandler(w http.ResponseWriter, r *http.Request) {
+	container := Container{} //initialize empty VethPair
+	err := json.NewDecoder(r.Body).Decode(&container)
+	if err != nil {
+		panic(err)
+	}
+	if len(container.ContainerName) == 0 || (len(container.Cpu) == 0 && len(container.Ram) == 0) {
+		w.WriteHeader(http.StatusBadRequest)
+	} else {
+		// Execute Command to Create veth pair and connect them to switches
+		wg := new(sync.WaitGroup)
+		wg.Add(1)
+		am := createDockerContainerWithPortMap(container, wg)
+		wg.Wait()
+		fmt.Fprintf(w, am)
+	}
+}
+
 func main() {
 	fmt.Println(" ")
 	fmt.Println("****  XNFV Http Server Agent  ****")
 	fmt.Println("****  By AH.GHORAB Fall-2018  ****")
-	fmt.Println("****  Version 2.2             ****")
+	fmt.Println("****  Version 2.5             ****")
 	fmt.Println("----------------------------------")
 	fmt.Println("[*] Agent Running at localhost:8000")
 	fmt.Println("[*] Valid rest URLs")
@@ -803,6 +840,7 @@ func main() {
 	fmt.Println("[#] - /createVethPair")
 	fmt.Println("[#] - /deleteVethPair")
 	fmt.Println("[#] - /createVNFDocker")
+	fmt.Println("[#] - /updateVNFDocker")
 	fmt.Println("[#] - /deleteVNFDocker")
 	fmt.Println("[#] - /createDockerContainerWithPortMap")
 	fmt.Println("	 - Must fill initial command in the jason request")
@@ -833,6 +871,7 @@ func main() {
 	// Create/Delete VNF Docker
 	http.HandleFunc("/createVNFDocker", createVNFDockerHandler)
 	http.HandleFunc("/deleteVNFDocker", deleteVNFDockerHandler)
+	http.HandleFunc("/updateVNFDocker", updateVNFDockerHandler)
 	http.HandleFunc("/createDockerContainerWithPortMap", createDockerContainerWithPortMapHandler)
 
 	// Create/Delete OVS-VNF Docker Ports
