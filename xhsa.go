@@ -78,6 +78,7 @@ type Container struct {
 	Ports          string `json:"ports"`
 }
 
+
 func createSwitch(switchName string, switchControllerIp string, switchControllerPort string, wg *sync.WaitGroup) string {
 	// Create Switch
 	createSwitch := "ovs-vsctl add-br " + switchName
@@ -434,6 +435,24 @@ func checkContainerExistByName(container Container, wg *sync.WaitGroup) string {
 
 }
 
+func checkSwitchExistByName(swch Switch, wg *sync.WaitGroup) string {
+	commandCheck := "sudo ovs-vsctl show | grep -sw 'Bridge \"" + swch.SwitchName + "\"'"
+	ifSwitchExist, errIfSwitchExist := exec.Command("bash", "-c", commandCheck).Output()
+	if errIfSwitchExist != nil {
+		fmt.Printf("%s", errIfSwitchExist)
+	}
+	wg.Done() // Need to signal to waitgroup that this goroutine is done
+	t := time.Now()
+	if (string(ifSwitchExist) != "") {
+		fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Switch " + swch.SwitchName + " exist in this host")
+		return "true"
+	} else {
+		fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Switch " + swch.SwitchName + " does not exist in this host")
+		return "false"
+	}
+
+}
+
 // ************************ Controllers Handler **********************************************************************
 
 func createSwitchHandler(w http.ResponseWriter, r *http.Request) {
@@ -697,13 +716,30 @@ func checkContainerExistByNameHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func checkSwitchExistByNameHandler(w http.ResponseWriter, r *http.Request) {
+	swtch := Switch{} //initialize empty VethPair
+	err := json.NewDecoder(r.Body).Decode(&swtch)
+	if err != nil {
+		panic(err)
+	}
+	if len(swtch.SwitchName) == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+	} else {
+		// Execute Command to Create veth pair and connect them to switches
+		wg := new(sync.WaitGroup)
+		wg.Add(1)
+		am := checkSwitchExistByName(swtch, wg)
+		wg.Wait()
+		fmt.Fprintf(w, am)
+	}
+}
+
 func main() {
 	fmt.Println(" ")
 	fmt.Println("****  XNFV Http Server Agent  ****")
-	fmt.Println("****  By AH.GHORAB            ****")
-	fmt.Println("****  Version 1.8             ****")
-	fmt.Println("****  Fall 2018             ****")
-	fmt.Println("------------------------------------")
+	fmt.Println("****  By AH.GHORAB Fall-2018  ****")
+	fmt.Println("****  Version 1.9             ****")
+	fmt.Println("----------------------------------")
 	fmt.Println("[*] Agent Running at localhost:8000")
 	fmt.Println("[*] Valid rest URLs")
 	fmt.Println("[#] - /createSwitch")
@@ -723,6 +759,7 @@ func main() {
 	fmt.Println("	 - Params: {ContainerName, CommandName, Command}")
 	fmt.Println("	 - To stop infinit Commands(like ping) execute -> Kill -9 Command_PID")
 	fmt.Println("[#] - /checkContainerExistByName")
+	fmt.Println("[#] - /checkSwitchExistByName")
 	fmt.Println(" ")
 	fmt.Println("------------ Agent Logs ------------")
 	fmt.Println(" ")
@@ -757,6 +794,8 @@ func main() {
 
 	// Checking Commands
 	http.HandleFunc("/checkContainerExistByName", checkContainerExistByNameHandler)
+	http.HandleFunc("/checkSwitchExistByName", checkSwitchExistByNameHandler)
+
 
 	http.ListenAndServe(":8000", nil)
 
