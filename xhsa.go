@@ -27,8 +27,11 @@ type Topology struct {
 }
 
 type VnfDocker struct {
-	Name  string `json:"name"`
-	Image string `json:"img"`
+	Name  	string `json:"name"`
+	Image 	string `json:"img"`
+	Cpu 	string `json:"cpu"`
+	Ram 	string `json:"ram"`
+	Command string `json:"command"`
 }
 
 type NetworkCard struct {
@@ -200,10 +203,15 @@ func deleteVethPair(switchL string, switchR string, wg *sync.WaitGroup) string {
 	return "Veth pair " + switchL + "_" + switchR + " Deleted"
 }
 
-func createVnfDocker(vnfName string, vnfImage string, wg *sync.WaitGroup) string {
-
-	// delete OVS links
-	createVnfDocker := "docker run -dit  --name " + vnfName + " --net=none " + vnfImage + " /bin/bash"
+func createVnfDocker(vnfDocker VnfDocker, wg *sync.WaitGroup) string {
+	createVnfDocker := "docker run -dit  --name " + vnfDocker.Name + " --net=none "
+	if(vnfDocker.Ram != ""){
+		createVnfDocker += "--memory=\"" + vnfDocker.Ram + "m\" "
+	}
+	if(vnfDocker.Cpu != ""){
+		createVnfDocker += "--cpus=\"" + vnfDocker.Cpu + "\" "
+	}
+	createVnfDocker += " " + vnfDocker.Image + " " + vnfDocker.Command
 	_, errCreateVnfDocker := exec.Command("bash", "-c", createVnfDocker).Output()
 	if errCreateVnfDocker != nil {
 		fmt.Printf("%s", errCreateVnfDocker)
@@ -211,8 +219,8 @@ func createVnfDocker(vnfName string, vnfImage string, wg *sync.WaitGroup) string
 
 	wg.Done() // Need to signal to waitgroup that this goroutine is done
 	t := time.Now()
-	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "VNF " + vnfName + " Created")
-	return "VNF " + vnfName + " Created"
+	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "VNF " + vnfDocker.Name + " Created")
+	return "VNF " + vnfDocker.Name + " Created"
 }
 
 func deleteVnfDocker(vnfName string, wg *sync.WaitGroup) string {
@@ -557,7 +565,7 @@ func createVNFDockerHandler(w http.ResponseWriter, r *http.Request) {
 		// Execute Command to Create veth pair and connect them to switches
 		wg := new(sync.WaitGroup)
 		wg.Add(1)
-		am := createVnfDocker(vnfDocker.Name, vnfDocker.Image, wg)
+		am := createVnfDocker(vnfDocker, wg)
 		wg.Wait()
 		fmt.Fprintf(w, am)
 	}
@@ -738,7 +746,7 @@ func main() {
 	fmt.Println(" ")
 	fmt.Println("****  XNFV Http Server Agent  ****")
 	fmt.Println("****  By AH.GHORAB Fall-2018  ****")
-	fmt.Println("****  Version 1.9             ****")
+	fmt.Println("****  Version 2.1             ****")
 	fmt.Println("----------------------------------")
 	fmt.Println("[*] Agent Running at localhost:8000")
 	fmt.Println("[*] Valid rest URLs")
