@@ -214,6 +214,9 @@ func createVnfDocker(vnfDocker VnfDocker, wg *sync.WaitGroup) string {
 		createVnfDocker += "--cpus=\"" + vnfDocker.Cpu + "\" "
 	}
 	createVnfDocker += " " + vnfDocker.Image + " " + vnfDocker.Command
+
+	fmt.Println(createVnfDocker)
+
 	_, errCreateVnfDocker := exec.Command("bash", "-c", createVnfDocker).Output()
 	if errCreateVnfDocker != nil {
 		fmt.Printf("%s", errCreateVnfDocker)
@@ -483,6 +486,7 @@ func createDockerContainerWithPortMap(container Container, wg *sync.WaitGroup) s
 		fmt.Printf("%s", errCreateVnfDocker)
 	}
 
+	fmt.Println(createVnfDocker)
 	wg.Done() // Need to signal to waitgroup that this goroutine is done
 	t := time.Now()
 	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Container " + container.ContainerName + " Created")
@@ -498,6 +502,7 @@ func updateVNFDocker(container Container, wg *sync.WaitGroup) string {
 		updateVnfDocker += "--cpus=\"" + container.Cpu + "\" "
 	}
 	updateVnfDocker += container.ContainerName
+	fmt.Println(updateVnfDocker)
 	_, errUpdateVnfDocker := exec.Command("bash", "-c", updateVnfDocker).Output()
 	if errUpdateVnfDocker != nil {
 		fmt.Printf("%s", errUpdateVnfDocker)
@@ -814,13 +819,13 @@ func updateVNFDockerHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	if len(container.ContainerName) == 0 || (len(container.Cpu) == 0 && len(container.Ram) == 0) {
+	if len(container.ContainerName) == 0 {
 		w.WriteHeader(http.StatusBadRequest)
 	} else {
 		// Execute Command to Create veth pair and connect them to switches
 		wg := new(sync.WaitGroup)
 		wg.Add(1)
-		am := createDockerContainerWithPortMap(container, wg)
+		am := updateVNFDocker(container, wg)
 		wg.Wait()
 		fmt.Fprintf(w, am)
 	}
