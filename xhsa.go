@@ -49,7 +49,6 @@ type HostStatus struct {
 	RamUsage     string `json:"ramUsage"`
 	HhdUsage     string `json:"hhdUsage"`
 	OvsVersion   string `json:"ovsVersion"`
-	networkCards []NetworkCard
 }
 
 type OVSDockerPort struct {
@@ -120,7 +119,7 @@ func getHostStatus(wg *sync.WaitGroup) HostStatus {
 	}
 
 	// Get hhd usage
-	getHHDStatusCommand := "df | grep '^/dev/[hs]d' | awk '{s+=$2} END {print s/1048576}'"
+	getHHDStatusCommand := "df -P / | awk '/%/ {print 100 -$5 ''}'"
 	hhdStatus, errgetHHDStatusCommand := exec.Command("bash", "-c", getHHDStatusCommand).Output()
 	if errgetHHDStatusCommand != nil {
 		fmt.Printf("%s", errgetHHDStatusCommand)
@@ -162,6 +161,34 @@ func getHostStatus(wg *sync.WaitGroup) HostStatus {
 	t := time.Now()
 	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Get Host Status")
 	return hostStatus
+}
+
+func getHostNetworkCardPropertyByName(networkCard NetworkCard, wg *sync.WaitGroup) NetworkCard {
+	tempNetworkCard := NetworkCard{}
+	tempNetworkCard.Name = networkCard.Name
+	// Create Switch
+	getNetworkCardIpAdd := "echo $(ifconfig | grep -A 1 '" + networkCard.Name + "' | tail -1 | cut -d ':' -f 2 | cut -d ' ' -f 1)"
+	ipAddress, errgetNetworkCardIpAdd := exec.Command("bash", "-c", getNetworkCardIpAdd).Output()
+	if errgetNetworkCardIpAdd != nil {
+		fmt.Printf("%s", errgetNetworkCardIpAdd)
+		tempNetworkCard.IpAddress = ""
+	} else {
+		tempNetworkCard.IpAddress = strings.TrimSuffix(string(ipAddress), "\n")
+	}
+
+	getNetworkCardMacAdd := "ifconfig " + networkCard.Name + " | awk '/HWaddr/ {print $5}'"
+	macAddress, errgetNetworkCardMacAdd := exec.Command("bash", "-c", getNetworkCardMacAdd).Output()
+	if errgetNetworkCardIpAdd != nil {
+		fmt.Printf("%s", errgetNetworkCardMacAdd)
+		tempNetworkCard.MacAddress = ""
+	} else {
+		tempNetworkCard.MacAddress = strings.TrimSuffix(string(macAddress), "\n")
+	}
+
+	wg.Done() // Need to signal to waitgroup that this goroutine is done
+	t := time.Now()
+	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Got Host network cards")
+	return tempNetworkCard
 }
 
 func createSwitch(switchName string, switchControllerIp string, switchControllerPort string, wg *sync.WaitGroup) string {
@@ -508,7 +535,7 @@ func updateVNFDocker(container Container, wg *sync.WaitGroup) string {
 // ************************ Controllers Handler **********************************************************************
 
 func connectToAgetHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusAccepted)
+	w.WriteHeader(http.StatusOK)
 }
 
 func serverStatusHandler(w http.ResponseWriter, r *http.Request) {
@@ -524,6 +551,30 @@ func serverStatusHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(serverStatsJson)
 	//fmt.Fprintf(w, )
+}
+
+func getHostNetworkCardPropertyByNameHandler(w http.ResponseWriter, r *http.Request) {
+	networkCard := NetworkCard{} //initialize empty VethPair
+	err := json.NewDecoder(r.Body).Decode(&networkCard)
+	if err != nil {
+		panic(err)
+	}
+	if len(networkCard.Name) == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+	} else {
+		// Execute Command to Create veth pair and connect them to switches
+		wg := new(sync.WaitGroup)
+		wg.Add(1)
+		am := getHostNetworkCardPropertyByName(networkCard, wg)
+		wg.Wait()
+		networkcard, err := json.Marshal(am)
+		if err != nil {
+			fmt.Fprintf(w, "Error: %s", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(networkcard)
+	}
+
 }
 
 func createSwitchHandler(w http.ResponseWriter, r *http.Request) {
@@ -851,6 +902,7 @@ func main() {
 	fmt.Println("[*] Valid rest URLs")
 	fmt.Println("[#] - /connectToAget")
 	fmt.Println("[#] - /serverStatus")
+	fmt.Println("[#] - /getHostNetworkCardPropertyByName")
 	fmt.Println("[#] - /createSwitch")
 	fmt.Println("[#] - /deleteSwitch")
 	fmt.Println("[#] - /setSwitchController")
@@ -879,6 +931,7 @@ func main() {
 	// Server status
 	http.HandleFunc("/connectToAget", connectToAgetHandler)
 	http.HandleFunc("/serverStatus", serverStatusHandler)
+	http.HandleFunc("/getHostNetworkCardPropertyByName", getHostNetworkCardPropertyByNameHandler)
 
 	// Create/Delete Switch
 	http.HandleFunc("/createSwitch", createSwitchHandler)
