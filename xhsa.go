@@ -28,10 +28,10 @@ type Topology struct {
 }
 
 type VnfDocker struct {
-	Name  	string `json:"name"`
-	Image 	string `json:"img"`
-	Cpu 	string `json:"cpu"`
-	Ram 	string `json:"ram"`
+	Name    string `json:"name"`
+	Image   string `json:"img"`
+	Cpu     string `json:"cpu"`
+	Ram     string `json:"ram"`
 	Command string `json:"command"`
 }
 
@@ -76,12 +76,92 @@ type ContainerCommand struct {
 }
 
 type Container struct {
-	Image          	string `json:"image"`
-	ContainerName 	string `json:"containerName"`
-	InitCommand    	string `json:"initCommand"`
-	Cpu    			string `json:"cpu"`
-	Ram    			string `json:"ram"`
-	Ports          string `json:"ports"`
+	Image         string `json:"image"`
+	ContainerName string `json:"containerName"`
+	InitCommand   string `json:"initCommand"`
+	Cpu           string `json:"cpu"`
+	Ram           string `json:"ram"`
+	Ports         string `json:"ports"`
+}
+
+func getHostStatus(wg *sync.WaitGroup) HostStatus {
+	hostStatus := HostStatus{}
+
+	// Get Cpu usage
+	getCpuStatusCommand := "top -bn1 | grep 'Cpu(s)' | sed 's/.*, *\\([0-9.]*\\)%* id.*/\\1/' | awk '{print 100 - $1''}'"
+	cpuStatus, errGetCpuStatusCommand := exec.Command("bash", "-c", getCpuStatusCommand).Output()
+	if errGetCpuStatusCommand != nil {
+		fmt.Printf("%s", errGetCpuStatusCommand)
+		hostStatus.CpuUsage = ""
+	} else {
+		/*
+		for preventing "\n" effect in marshalize json
+		ٖٖ{
+			"cpu": "2\n",
+			"ram": "5\n",
+			"hhd": "94.3687\n",
+			"cpuUsage": "0.7\n",
+			"ramUsage": "2.64248\n",
+			"hhdUsage": "94.3687\n",
+			"ovsVersion": ""
+		}
+		 */
+		hostStatus.CpuUsage = strings.TrimSuffix(string(cpuStatus), "\n")
+	}
+
+	// Get ram usage (%)
+	getRamStatusCommand := "free | grep Mem | awk '{print $3/$2 * 100.0}'"
+	ramStatus, errGetRamStatusCommand := exec.Command("bash", "-c", getRamStatusCommand).Output()
+	if errGetRamStatusCommand != nil {
+		fmt.Printf("%s", errGetRamStatusCommand)
+		hostStatus.RamUsage = ""
+	} else {
+		hostStatus.RamUsage = strings.TrimSuffix(string(ramStatus), "\n")
+	}
+
+	// Get hhd usage
+	getHHDStatusCommand := "df | grep '^/dev/[hs]d' | awk '{s+=$2} END {print s/1048576}'"
+	hhdStatus, errgetHHDStatusCommand := exec.Command("bash", "-c", getHHDStatusCommand).Output()
+	if errgetHHDStatusCommand != nil {
+		fmt.Printf("%s", errgetHHDStatusCommand)
+		hostStatus.HhdUsage = ""
+	} else {
+		hostStatus.HhdUsage = strings.TrimSuffix(string(hhdStatus), "\n")
+	}
+
+	// Get Total Cpu
+	getTotalCpuStatusCommand := "echo  $(( $(lscpu | awk '/^Socket/{ print $2 }') * $(lscpu | awk '/^Core/{ print $4 }') ))"
+	totalCpu, errgetTotalCpuStatusCommand := exec.Command("bash", "-c", getTotalCpuStatusCommand).Output()
+	if errgetHHDStatusCommand != nil {
+		fmt.Printf("%s", errgetTotalCpuStatusCommand)
+		hostStatus.Cpu = ""
+	} else {
+		hostStatus.Cpu = strings.TrimSuffix(string(totalCpu), "\n")
+	}
+
+	// Get Total ram (GB)
+	getTotalRamStatusCommand := "expr $(awk '/MemTotal/ {print $2}' /proc/meminfo) / 1048576"
+	totalRam, errgetTotalRamStatusCommand := exec.Command("bash", "-c", getTotalRamStatusCommand).Output()
+	if errgetHHDStatusCommand != nil {
+		fmt.Printf("%s", errgetTotalRamStatusCommand)
+		hostStatus.Ram = ""
+	} else {
+		hostStatus.Ram = strings.TrimSuffix(string(totalRam), "\n")
+	}
+	// Get Total hhd
+	getTotalHhdStatusCommand := "df | grep '^/dev/[hs]d' | awk '{s+=$2} END {print s/1048576}'"
+	totalHhd, errgetTotalHhdStatusCommand := exec.Command("bash", "-c", getTotalHhdStatusCommand).Output()
+	if errgetHHDStatusCommand != nil {
+		fmt.Printf("%s", errgetTotalHhdStatusCommand)
+		hostStatus.Hhd = ""
+	} else {
+		hostStatus.Hhd = strings.TrimSuffix(string(totalHhd), "\n")
+	}
+
+	wg.Done() // Need to signal to waitgroup that this goroutine is done
+	t := time.Now()
+	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Get Host Status")
+	return hostStatus
 }
 
 func createSwitch(switchName string, switchControllerIp string, switchControllerPort string, wg *sync.WaitGroup) string {
@@ -207,10 +287,10 @@ func deleteVethPair(switchL string, switchR string, wg *sync.WaitGroup) string {
 
 func createVnfDocker(vnfDocker VnfDocker, wg *sync.WaitGroup) string {
 	createVnfDocker := "docker run -dit  --name " + vnfDocker.Name + " --net=none "
-	if(vnfDocker.Ram != ""){
+	if (vnfDocker.Ram != "") {
 		createVnfDocker += "--memory=\"" + vnfDocker.Ram + "m\" "
 	}
-	if(vnfDocker.Cpu != ""){
+	if (vnfDocker.Cpu != "") {
 		createVnfDocker += "--cpus=\"" + vnfDocker.Cpu + "\" "
 	}
 	createVnfDocker += " " + vnfDocker.Image + " " + vnfDocker.Command
@@ -312,95 +392,6 @@ func deleteSflowAgent(switchName string, agentId string, wg *sync.WaitGroup) str
 	return "Sflow Agent deleted from " + switchName + " switch"
 }
 
-//func getHostStatus(wg *sync.WaitGroup) HostStatus {
-//	hostStatus := HostStatus{}
-//
-//	// Get Cpu
-//	getCpuStatusCommand := "top -bn1 | grep 'Cpu(s)' | sed 's/.*, *\\([0-9.]*\\)%* id.*/\\1/' | awk '{print 100 - $1''}'"
-//	cpuStatus, errGetCpuStatusCommand:= exec.Command("bash", "-c", getCpuStatusCommand).Output()
-//	if errGetCpuStatusCommand != nil {
-//		fmt.Printf("%s", errGetCpuStatusCommand)
-//		hostStatus.Cpu = ""
-//	} else {
-//		hostStatus.Cpu = string(cpuStatus)
-//	}
-//
-//	// Get Ram
-//	getRamStatusCommand := "top -bn1 | grep 'Cpu(s)' | sed 's/.*, *\\([0-9.]*\\)%* id.*/\\1/' | awk '{print 100 - $1''}'"
-//	ramStatus, errGetRamStatusCommand := exec.Command("bash", "-c", getRamStatusCommand).Output()
-//	if errGetRamStatusCommand != nil {
-//		fmt.Printf("%s", errGetRamStatusCommand)
-//		hostStatus.Ram = ""
-//	} else {
-//		hostStatus.Ram = string(ramStatus)
-//	}
-//
-//	// Get hhd
-//	getHhdStatusCommand := "top -bn1 | grep 'Cpu(s)' | sed 's/.*, *\\([0-9.]*\\)%* id.*/\\1/' | awk '{print 100 - $1''}'"
-//	hhdStatus, errGetHhdStatusCommand := exec.Command("bash", "-c", getHhdStatusCommand).Output()
-//	if errGetHhdStatusCommand != nil {
-//		fmt.Printf("%s", errGetHhdStatusCommand)
-//		hostStatus.Cpu = ""
-//	} else {
-//		hostStatus.Cpu = string(hhdStatus)
-//	}
-//
-//	// Get Ram
-//	getCpuUsageCommand := "top -bn1 | grep 'Cpu(s)' | sed 's/.*, *\\([0-9.]*\\)%* id.*/\\1/' | awk '{print 100 - $1''}'"
-//	cpuUsage, errGetCpuUsageCommand := exec.Command("bash", "-c", getCpuUsageCommand).Output()
-//	if errGetCpuUsageCommand != nil {
-//		fmt.Printf("%s", errGetCpuUsageCommand)
-//		hostStatus.Cpu = ""
-//	} else {
-//		hostStatus.Cpu = string(cpuUsage)
-//	}
-//
-//	// Get Ram
-//	getCpuStatusCommand := "top -bn1 | grep 'Cpu(s)' | sed 's/.*, *\\([0-9.]*\\)%* id.*/\\1/' | awk '{print 100 - $1''}'"
-//	output, errDelOVSLinkL := exec.Command("bash", "-c", getCpuStatusCommand).Output()
-//	if errDelOVSLinkL != nil {
-//		fmt.Printf("%s", errDelOVSLinkL)
-//		hostStatus.Cpu = ""
-//	} else {
-//		hostStatus.Cpu = string(output)
-//	}
-//
-//	// Get Ram
-//	getCpuStatusCommand := "top -bn1 | grep 'Cpu(s)' | sed 's/.*, *\\([0-9.]*\\)%* id.*/\\1/' | awk '{print 100 - $1''}'"
-//	output, errDelOVSLinkL := exec.Command("bash", "-c", getCpuStatusCommand).Output()
-//	if errDelOVSLinkL != nil {
-//		fmt.Printf("%s", errDelOVSLinkL)
-//		hostStatus.Cpu = ""
-//	} else {
-//		hostStatus.Cpu = string(output)
-//	}
-//
-//	// Get Ram
-//	getCpuStatusCommand := "top -bn1 | grep 'Cpu(s)' | sed 's/.*, *\\([0-9.]*\\)%* id.*/\\1/' | awk '{print 100 - $1''}'"
-//	output, errDelOVSLinkL := exec.Command("bash", "-c", getCpuStatusCommand).Output()
-//	if errDelOVSLinkL != nil {
-//		fmt.Printf("%s", errDelOVSLinkL)
-//		hostStatus.Cpu = ""
-//	} else {
-//		hostStatus.Cpu = string(output)
-//	}
-//
-//	// Get Ram
-//	getCpuStatusCommand := "top -bn1 | grep 'Cpu(s)' | sed 's/.*, *\\([0-9.]*\\)%* id.*/\\1/' | awk '{print 100 - $1''}'"
-//	output, errDelOVSLinkL := exec.Command("bash", "-c", getCpuStatusCommand).Output()
-//	if errDelOVSLinkL != nil {
-//		fmt.Printf("%s", errDelOVSLinkL)
-//		hostStatus.Cpu = ""
-//	} else {
-//		hostStatus.Cpu = string(output)
-//	}
-//
-//	wg.Done() // Need to signal to waitgroup that this goroutine is done
-//	t := time.Now()
-//	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Get Host Status")
-//	return hostStatus
-//}
-
 func containerExecCommand(containerCommand ContainerCommand, wg *sync.WaitGroup) string {
 	// exec command inside container
 	//command := "docker exec -d " + containerCommand.ContainerName + " screen -S " + containerCommand.CommandName + " -d  -m /bin/bash -c '" + containerCommand.Command + " | tee /var/log/" + containerCommand.CommandName + ".log'"
@@ -468,15 +459,15 @@ func checkSwitchExistByName(swch Switch, wg *sync.WaitGroup) string {
 
 func createDockerContainerWithPortMap(container Container, wg *sync.WaitGroup) string {
 	createVnfDocker := "docker run -d  --name " + container.ContainerName + " "
-	if(container.Ram != ""){
+	if (container.Ram != "") {
 		createVnfDocker += "--memory=\"" + container.Ram + "m\" "
 	}
-	if(container.Cpu != ""){
+	if (container.Cpu != "") {
 		createVnfDocker += "--cpus=\"" + container.Cpu + "\" "
 	}
-	if(container.Ports != ""){
-		ports :=  strings.Split(container.Ports, ",")
-		for  _, port := range ports{
+	if (container.Ports != "") {
+		ports := strings.Split(container.Ports, ",")
+		for _, port := range ports {
 			createVnfDocker += " -p " + port + " "
 		}
 	}
@@ -495,10 +486,10 @@ func createDockerContainerWithPortMap(container Container, wg *sync.WaitGroup) s
 
 func updateVNFDocker(container Container, wg *sync.WaitGroup) string {
 	updateVnfDocker := "docker update "
-	if(container.Ram != ""){
+	if (container.Ram != "") {
 		updateVnfDocker += "--memory=\"" + container.Ram + "m\" "
 	}
-	if(container.Cpu != ""){
+	if (container.Cpu != "") {
 		updateVnfDocker += "--cpus=\"" + container.Cpu + "\" "
 	}
 	updateVnfDocker += container.ContainerName
@@ -515,6 +506,25 @@ func updateVNFDocker(container Container, wg *sync.WaitGroup) string {
 }
 
 // ************************ Controllers Handler **********************************************************************
+
+func connectToAgetHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusAccepted)
+}
+
+func serverStatusHandler(w http.ResponseWriter, r *http.Request) {
+	// Execute Command to Create veth pair and connect them to switches
+	wg := new(sync.WaitGroup)
+	wg.Add(1)
+	am := getHostStatus(wg)
+	wg.Wait()
+	serverStatsJson, err := json.Marshal(am)
+	if err != nil {
+		fmt.Fprintf(w, "Error: %s", err)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(serverStatsJson)
+	//fmt.Fprintf(w, )
+}
 
 func createSwitchHandler(w http.ResponseWriter, r *http.Request) {
 	swch := Switch{} //initialize empty VethPair
@@ -801,7 +811,7 @@ func createDockerContainerWithPortMapHandler(w http.ResponseWriter, r *http.Requ
 	if err != nil {
 		panic(err)
 	}
-	if len(container.ContainerName) == 0 || len(container.ContainerName) == 0 || len(container.InitCommand) == 0{
+	if len(container.ContainerName) == 0 || len(container.ContainerName) == 0 || len(container.InitCommand) == 0 {
 		w.WriteHeader(http.StatusBadRequest)
 	} else {
 		// Execute Command to Create veth pair and connect them to switches
@@ -835,10 +845,12 @@ func main() {
 	fmt.Println(" ")
 	fmt.Println("****  XNFV Http Server Agent  ****")
 	fmt.Println("****  By AH.GHORAB Fall-2018  ****")
-	fmt.Println("****  Version 2.5             ****")
+	fmt.Println("****  Version 3.1             ****")
 	fmt.Println("----------------------------------")
 	fmt.Println("[*] Agent Running at localhost:8000")
 	fmt.Println("[*] Valid rest URLs")
+	fmt.Println("[#] - /connectToAget")
+	fmt.Println("[#] - /serverStatus")
 	fmt.Println("[#] - /createSwitch")
 	fmt.Println("[#] - /deleteSwitch")
 	fmt.Println("[#] - /setSwitchController")
@@ -863,6 +875,10 @@ func main() {
 	fmt.Println(" ")
 	fmt.Println("------------ Agent Logs ------------")
 	fmt.Println(" ")
+
+	// Server status
+	http.HandleFunc("/connectToAget", connectToAgetHandler)
+	http.HandleFunc("/serverStatus", serverStatusHandler)
 
 	// Create/Delete Switch
 	http.HandleFunc("/createSwitch", createSwitchHandler)
@@ -897,7 +913,6 @@ func main() {
 	// Checking Commands
 	http.HandleFunc("/checkContainerExistByName", checkContainerExistByNameHandler)
 	http.HandleFunc("/checkSwitchExistByName", checkSwitchExistByNameHandler)
-
 
 	http.ListenAndServe(":8000", nil)
 
