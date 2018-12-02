@@ -42,13 +42,15 @@ type NetworkCard struct {
 }
 
 type HostStatus struct {
-	Cpu          string `json:"cpu"`
-	Ram          string `json:"ram"`
-	Hhd          string `json:"hhd"`
-	CpuUsage     string `json:"cpuUsage"`
-	RamUsage     string `json:"ramUsage"`
-	HhdUsage     string `json:"hhdUsage"`
-	OvsVersion   string `json:"ovsVersion"`
+	Cpu          	string `json:"cpu"`
+	Ram          	string `json:"ram"`
+	Hhd          	string `json:"hhd"`
+	CpuUsage     	string `json:"cpuUsage"`
+	RamUsage     	string `json:"ramUsage"`
+	HhdUsage     	string `json:"hhdUsage"`
+	OvsVersion   	string `json:"ovsVersion"`
+	DockerVersion   string `json:"dockerVersion"`
+	KvmVersion   	string `json:"kvmVersion"`
 }
 
 type OVSDockerPort struct {
@@ -156,6 +158,28 @@ func getHostStatus(wg *sync.WaitGroup) HostStatus {
 	} else {
 		hostStatus.Hhd = strings.TrimSuffix(string(totalHhd), "\n")
 	}
+
+	// Get OVS Version
+	ovsVersionCommand := "ovs-vsctl --version |head -n 1| cut -d ' ' -f 4"
+	ovsVersion, errovsVersionCommand := exec.Command("bash", "-c", ovsVersionCommand).Output()
+	if errovsVersionCommand != nil {
+		fmt.Printf("%s", errovsVersionCommand)
+		hostStatus.OvsVersion = ""
+	} else {
+		hostStatus.OvsVersion = strings.TrimSuffix(string(ovsVersion), "\n")
+	}
+
+	// Get OVS Version
+	dockerVersionCommand := "docker version | grep -sw Version: | head -n 1 | awk '{ print $2 }'"
+	ovsVersion, errdockerVersionCommand := exec.Command("bash", "-c", dockerVersionCommand).Output()
+	if errdockerVersionCommand != nil {
+		fmt.Printf("%s", errdockerVersionCommand)
+		hostStatus.DockerVersion = ""
+	} else {
+		hostStatus.DockerVersion = strings.TrimSuffix(string(ovsVersion), "\n")
+	}
+
+	hostStatus.KvmVersion = "-"
 
 	wg.Done() // Need to signal to waitgroup that this goroutine is done
 	t := time.Now()
