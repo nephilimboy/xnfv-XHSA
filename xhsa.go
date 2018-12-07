@@ -39,18 +39,19 @@ type NetworkCard struct {
 	Name       string `json:"name"`
 	IpAddress  string `json:"ipAddress"`
 	MacAddress string `json:"macAddress"`
+	IsPrimary  bool   `json:"isPrimary"`
 }
 
 type HostStatus struct {
-	Cpu          	string `json:"cpu"`
-	Ram          	string `json:"ram"`
-	Hhd          	string `json:"hhd"`
-	CpuUsage     	string `json:"cpuUsage"`
-	RamUsage     	string `json:"ramUsage"`
-	HhdUsage     	string `json:"hhdUsage"`
-	OvsVersion   	string `json:"ovsVersion"`
-	DockerVersion   string `json:"dockerVersion"`
-	KvmVersion   	string `json:"kvmVersion"`
+	Cpu           string `json:"cpu"`
+	Ram           string `json:"ram"`
+	Hhd           string `json:"hhd"`
+	CpuUsage      string `json:"cpuUsage"`
+	RamUsage      string `json:"ramUsage"`
+	HhdUsage      string `json:"hhdUsage"`
+	OvsVersion    string `json:"ovsVersion"`
+	DockerVersion string `json:"dockerVersion"`
+	KvmVersion    string `json:"kvmVersion"`
 }
 
 type OVSDockerPort struct {
@@ -83,6 +84,12 @@ type Container struct {
 	Cpu           string `json:"cpu"`
 	Ram           string `json:"ram"`
 	Ports         string `json:"ports"`
+}
+
+type Gre struct {
+	SwitchName  string `json:"switchName"`
+	GrePortName string `json:"grePortName"`
+	RemoteIp    string `json:"remoteIp"`
 }
 
 func getHostStatus(wg *sync.WaitGroup) HostStatus {
@@ -208,7 +215,7 @@ func getHostNetworkCardPropertyByName(networkCard NetworkCard, wg *sync.WaitGrou
 	} else {
 		tempNetworkCard.MacAddress = strings.TrimSuffix(string(macAddress), "\n")
 	}
-
+	tempNetworkCard.IsPrimary = false;
 	wg.Done() // Need to signal to waitgroup that this goroutine is done
 	t := time.Now()
 	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Got Host network cards")
@@ -306,6 +313,19 @@ func createVethPair(switchL string, switchR string, wg *sync.WaitGroup) string {
 	t := time.Now()
 	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Veth pair " + switchL + "_" + switchR + " Created")
 	return "Veth pair " + switchL + "_" + switchR + " Created"
+}
+
+func createGrePort(grePort Gre, wg *sync.WaitGroup) string {
+	// Create Ip Links
+	grePortCommand := "ovs-vsctl add-port " + grePort.SwitchName + " " + grePort.GrePortName + " -- set interface " + grePort.GrePortName + " type=gre options:remote_ip=" + grePort.RemoteIp
+	_, errcreateIpLink := exec.Command("bash", "-c", grePortCommand).Output()
+	if errcreateIpLink != nil {
+		fmt.Printf("%s", errcreateIpLink)
+	}
+	wg.Done() // Need to signal to waitgroup that this goroutine is done
+	t := time.Now()
+	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Gre Port " + grePort.GrePortName + " Created")
+	return "Gre Port " + grePort.GrePortName + " Created"
 }
 
 func deleteVethPair(switchL string, switchR string, wg *sync.WaitGroup) string {
@@ -673,6 +693,24 @@ func createVethPairHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func createGrePairHandler(w http.ResponseWriter, r *http.Request) {
+	gre := Gre{} //initialize empty VethPair
+	err := json.NewDecoder(r.Body).Decode(&gre)
+	if err != nil {
+		panic(err)
+	}
+	if len(gre.SwitchName) == 0 || len(gre.GrePortName) == 0 || len(gre.RemoteIp) == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+	} else {
+		// Execute Command to Create veth pair and connect them to switches
+		wg := new(sync.WaitGroup)
+		wg.Add(1)
+		am := createGrePort(gre, wg)
+		wg.Wait()
+		fmt.Fprintf(w, am)
+	}
+}
+
 func deleteVethPairHandler(w http.ResponseWriter, r *http.Request) {
 	vetPair := VethPair{} //initialize empty VethPair
 	err := json.NewDecoder(r.Body).Decode(&vetPair)
@@ -817,15 +855,6 @@ func deleteSflowAgentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getHostStatusHandler(w http.ResponseWriter, r *http.Request) {
-	//wg := new(sync.WaitGroup)
-	//wg.Add(1)
-	//hostStatus := getHostStatus(wg)
-	//wg.Wait()
-	//fmt.Fprintf(w, hostStatus)
-
-}
-
 func containerExecCommandHandler(w http.ResponseWriter, r *http.Request) {
 	containerCommand := ContainerCommand{} //initialize empty VethPair
 	err := json.NewDecoder(r.Body).Decode(&containerCommand)
@@ -920,7 +949,7 @@ func main() {
 	fmt.Println(" ")
 	fmt.Println("****  XNFV Http Server Agent  ****")
 	fmt.Println("****  By AH.GHORAB Fall-2018  ****")
-	fmt.Println("****  Version 3.1             ****")
+	fmt.Println("****  Version 3.4             ****")
 	fmt.Println("----------------------------------")
 	fmt.Println("[*] Agent Running at localhost:8000")
 	fmt.Println("[*] Valid rest URLs")
@@ -932,6 +961,7 @@ func main() {
 	fmt.Println("[#] - /setSwitchController")
 	fmt.Println("[#] - /createVethPair")
 	fmt.Println("[#] - /deleteVethPair")
+	fmt.Println("[#] - /createGrePair")
 	fmt.Println("[#] - /createVNFDocker")
 	fmt.Println("[#] - /updateVNFDocker")
 	fmt.Println("[#] - /deleteVNFDocker")
@@ -942,7 +972,6 @@ func main() {
 	fmt.Println("[#] - /deleteALlOVSDockerPort")
 	fmt.Println("[#] - /setSflowAgent")
 	fmt.Println("[#] - /deleteSflowAgent")
-	fmt.Println("[#] - /getHostStatus")
 	fmt.Println("[#] - /containerExecCommand")
 	fmt.Println("	 - Params: {ContainerName, CommandName, Command}")
 	fmt.Println("	 - To stop infinit Commands(like ping) execute -> Kill -9 Command_PID")
@@ -966,6 +995,8 @@ func main() {
 	http.HandleFunc("/createVethPair", createVethPairHandler)
 	http.HandleFunc("/deleteVethPair", deleteVethPairHandler)
 
+	http.HandleFunc("/createGrePair", createGrePairHandler)
+
 	// Create/Delete VNF Docker
 	http.HandleFunc("/createVNFDocker", createVNFDockerHandler)
 	http.HandleFunc("/deleteVNFDocker", deleteVNFDockerHandler)
@@ -980,9 +1011,6 @@ func main() {
 	// Set/Delete SFlow Agent
 	http.HandleFunc("/setSflowAgent", setSflowAgentHandler)
 	http.HandleFunc("/deleteSflowAgent", deleteSflowAgentHandler)
-
-	// Server Statistics
-	http.HandleFunc("/getHostStatus", getHostStatusHandler)
 
 	// Execute Command inside Container
 	http.HandleFunc("/containerExecCommand", containerExecCommandHandler)
