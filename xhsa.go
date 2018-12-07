@@ -315,19 +315,6 @@ func createVethPair(switchL string, switchR string, wg *sync.WaitGroup) string {
 	return "Veth pair " + switchL + "_" + switchR + " Created"
 }
 
-func createGrePort(grePort Gre, wg *sync.WaitGroup) string {
-	// Create Ip Links
-	grePortCommand := "ovs-vsctl add-port " + grePort.SwitchName + " " + grePort.GrePortName + " -- set interface " + grePort.GrePortName + " type=gre options:remote_ip=" + grePort.RemoteIp
-	_, errcreateIpLink := exec.Command("bash", "-c", grePortCommand).Output()
-	if errcreateIpLink != nil {
-		fmt.Printf("%s", errcreateIpLink)
-	}
-	wg.Done() // Need to signal to waitgroup that this goroutine is done
-	t := time.Now()
-	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Gre Port " + grePort.GrePortName + " Created")
-	return "Gre Port " + grePort.GrePortName + " Created"
-}
-
 func deleteVethPair(switchL string, switchR string, wg *sync.WaitGroup) string {
 
 	// delete OVS links
@@ -354,6 +341,32 @@ func deleteVethPair(switchL string, switchR string, wg *sync.WaitGroup) string {
 	t := time.Now()
 	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Veth pair " + switchL + "_" + switchR + " Deleted")
 	return "Veth pair " + switchL + "_" + switchR + " Deleted"
+}
+
+func createGrePort(grePort Gre, wg *sync.WaitGroup) string {
+	// Create Ip Links
+	grePortCommand := "ovs-vsctl add-port " + grePort.SwitchName + " " + grePort.GrePortName + " -- set interface " + grePort.GrePortName + " type=gre options:remote_ip=" + grePort.RemoteIp
+	_, errcreateIpLink := exec.Command("bash", "-c", grePortCommand).Output()
+	if errcreateIpLink != nil {
+		fmt.Printf("%s", errcreateIpLink)
+	}
+	wg.Done() // Need to signal to waitgroup that this goroutine is done
+	t := time.Now()
+	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Gre Port " + grePort.GrePortName + " Created")
+	return "Gre Port " + grePort.GrePortName + " Created"
+}
+
+func deleteGrePair(grePort Gre, wg *sync.WaitGroup) string {
+	// Create Ip Links
+	delGreCommand := "ovs-vsctl --if-exists del-port " + grePort.SwitchName + " " + grePort.GrePortName
+	_, errcreateIpLink := exec.Command("bash", "-c", delGreCommand).Output()
+	if errcreateIpLink != nil {
+		fmt.Printf("%s", errcreateIpLink)
+	}
+	wg.Done() // Need to signal to waitgroup that this goroutine is done
+	t := time.Now()
+	fmt.Println(t.Format("2006-01-02 15:04:05") + " --- " + "Gre Port " + grePort.GrePortName + " deleted")
+	return "Gre Port " + grePort.GrePortName + " deleted"
 }
 
 func createVnfDocker(vnfDocker VnfDocker, wg *sync.WaitGroup) string {
@@ -711,6 +724,24 @@ func createGrePairHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func deleteGrePairHandler(w http.ResponseWriter, r *http.Request) {
+	gre := Gre{} //initialize empty VethPair
+	err := json.NewDecoder(r.Body).Decode(&gre)
+	if err != nil {
+		panic(err)
+	}
+	if len(gre.SwitchName) == 0 || len(gre.GrePortName) == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+	} else {
+		// Execute Command to Create veth pair and connect them to switches
+		wg := new(sync.WaitGroup)
+		wg.Add(1)
+		am := deleteGrePair(gre, wg)
+		wg.Wait()
+		fmt.Fprintf(w, am)
+	}
+}
+
 func deleteVethPairHandler(w http.ResponseWriter, r *http.Request) {
 	vetPair := VethPair{} //initialize empty VethPair
 	err := json.NewDecoder(r.Body).Decode(&vetPair)
@@ -949,7 +980,7 @@ func main() {
 	fmt.Println(" ")
 	fmt.Println("****  XNFV Http Server Agent  ****")
 	fmt.Println("****  By AH.GHORAB Fall-2018  ****")
-	fmt.Println("****  Version 3.4             ****")
+	fmt.Println("****  Version 3.5             ****")
 	fmt.Println("----------------------------------")
 	fmt.Println("[*] Agent Running at localhost:8000")
 	fmt.Println("[*] Valid rest URLs")
@@ -962,6 +993,7 @@ func main() {
 	fmt.Println("[#] - /createVethPair")
 	fmt.Println("[#] - /deleteVethPair")
 	fmt.Println("[#] - /createGrePair")
+	fmt.Println("[#] - /deleteGrePair")
 	fmt.Println("[#] - /createVNFDocker")
 	fmt.Println("[#] - /updateVNFDocker")
 	fmt.Println("[#] - /deleteVNFDocker")
@@ -996,6 +1028,7 @@ func main() {
 	http.HandleFunc("/deleteVethPair", deleteVethPairHandler)
 
 	http.HandleFunc("/createGrePair", createGrePairHandler)
+	http.HandleFunc("/deleteGrePair", deleteGrePairHandler)
 
 	// Create/Delete VNF Docker
 	http.HandleFunc("/createVNFDocker", createVNFDockerHandler)
